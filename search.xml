@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  
+  
+    
+    <entry>
+      <title><![CDATA[自己搭建亿级爬虫IP代理池]]></title>
+      <url>http://www.xnathan.com/2017/03/02/squid-proxy-pool/</url>
+      <content type="html"><![CDATA[<p>做爬虫抓取时，我们经常会碰到网站针对IP地址封锁的反爬虫策略。但只要有大量可用的IP资源，问题自然迎刃而解。</p>
+<p>以前尝试过自己抓取网络上免费代理IP来搭建代理池，可免费IP质量参差不齐，不仅资源少、速度慢，而且失效快，满足不了快速密集抓取的需求。</p>
+<p>收费代理提供的代理资源质量明显提升，最终选定使用<a href="http://ip.zdaye.com" target="_blank" rel="external">站大爷</a>作为代理提供平台。</p>
+<p>站大爷每天能提供大概5万个不重复的短效高匿代理，每个代理存活期为2分钟，总IP数有20亿，IP数量足够使用。价格为包天30元，包月500元，还有半年及一年的套餐可供选择。只要能满足项目要求，提供优质稳定的服务，这些成本值得付出。</p>
+<p>高匿代理才可以真正用来防止爬虫被封锁，如果使用普通代理，爬虫的真实IP还是会暴露。</p>
+<h3 id="搭建思路"><a href="#搭建思路" class="headerlink" title="搭建思路"></a>搭建思路</h3><p><a href="http://ip.zdaye.com" target="_blank" rel="external">站大爷</a>提供了大量的代理服务器资源，主要考虑如何将这些服务器分配给爬虫服务器使用。最初的想法是使用Redis作为代理服务器资源队列，一个程序自动获取站大爷API提供的代理，验证可用后push到Redis里，每个程序再从Redis中pop一个代理进行抓取，但这样的缺点是不太好控制每台爬虫服务器的代理质量，有的代理速度快，有的速度比较慢，影响抓取效率，其次就是需要自行维护一套代理验证、分配的程序，增加了代码量，不便后期维护。</p>
+<p>为了解决这些问题，我想到可以使用Squid提供的父代理功能，自动将爬虫服务器的请求转发给代理服务器。Squid提供了自动轮询功能，自动验证并剔除不可用的代理。减少了我们多余的验证步骤。</p>
+<p>爬虫软件只需将代理设置为Squid服务器即可，不需要每次重新设置为其他的代理服务器。</p>
+<p>这套方案明显减少了工作量，提高了易用性和可维护性。</p>
+<h3 id="实现过程"><a href="#实现过程" class="headerlink" title="实现过程"></a>实现过程</h3><ol>
+<li>首先获取代理平台提供的代理服务器资源<ul>
+<li>建议购买短效代理，购买后在后台获取API地址并设置IP白名单等参数</li>
+</ul>
+</li>
+<li>将获取到的代理服务器写入squid配置文件<ul>
+<li>解析网站提供的代理服务器，按照一定规则写入/etc/squid/squid.conf</li>
+</ul>
+</li>
+<li>重新配置squid <ul>
+<li>写入配置文件之后重新加载最新的文件，不会造成中断</li>
+</ul>
+</li>
+<li>自动更新，重复1-3<ul>
+<li>由于网站提供的代理存活时间只有2分钟，所以需要每隔一段时间重新获取一批新IP</li>
+</ul>
+</li>
+</ol>
+<p>实现上述要求的代码如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div></pre></td><td class="code"><pre><div class="line"><span class="comment">#!/usr/bin/env python</span></div><div class="line"><span class="comment"># coding: utf-8</span></div><div class="line"><span class="comment"># zdy.py</span></div><div class="line"><span class="string">'''</span></div><div class="line">Squid+站大爷搭建代理IP池</div><div class="line">Author: Nathan</div><div class="line">Blog: www.xnathan.com</div><div class="line">Github: github.com/xNathan</div><div class="line">'''</div><div class="line"><span class="keyword">import</span> os</div><div class="line"><span class="keyword">import</span> time</div><div class="line"><span class="keyword">import</span> requests</div><div class="line"></div><div class="line"><span class="comment"># Squid的配置文件语法</span></div><div class="line"><span class="comment"># 将请求转发到父代理</span></div><div class="line">PEER_CONF = <span class="string">"cache_peer %s parent %s 0 no-query weighted-round-robin weight=1 connect-fail-limit=2 allow-miss max-conn=5\n"</span></div><div class="line"></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">update_conf</span><span class="params">(proxies)</span>:</span></div><div class="line">    <span class="keyword">with</span> open(<span class="string">'/etc/squid/squid.conf.original'</span>, <span class="string">'r'</span>) <span class="keyword">as</span> F:</div><div class="line">        squid_conf = F.readlines()</div><div class="line">    squid_conf.append(<span class="string">'\n# Cache peer config\n'</span>)</div><div class="line">    <span class="keyword">for</span> proxy <span class="keyword">in</span> proxies:</div><div class="line">        squid_conf.append(PEER_CONF % (proxy[<span class="number">0</span>], proxy[<span class="number">1</span>]))</div><div class="line">    <span class="keyword">with</span> open(<span class="string">'/etc/squid/squid.conf'</span>, <span class="string">'w'</span>) <span class="keyword">as</span> F:</div><div class="line">        F.writelines(squid_conf)</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_proxy</span><span class="params">()</span>:</span></div><div class="line">    <span class="comment"># 1. 获取代理IP资源</span></div><div class="line">    api_url = <span class="string">'http://s.zdaye.com/?api=YOUR_API&amp;count=100&amp;fitter=1&amp;px=2'</span></div><div class="line">    res = requests.get(api_url).content</div><div class="line">    <span class="keyword">if</span> len(res) == <span class="number">0</span>:</div><div class="line">        <span class="keyword">print</span> <span class="string">'no data'</span></div><div class="line">    <span class="keyword">elif</span> <span class="string">'bad'</span> <span class="keyword">in</span> res:</div><div class="line">        <span class="keyword">print</span> <span class="string">'bad request'</span></div><div class="line">    <span class="keyword">else</span>:</div><div class="line">        <span class="keyword">print</span> <span class="string">'get all proxies'</span></div><div class="line">        proxies = []</div><div class="line">        <span class="keyword">for</span> line <span class="keyword">in</span> res.split():</div><div class="line">            proxies.append(line.strip().split(<span class="string">':'</span>))</div><div class="line">        <span class="comment"># 2. 写入Squid配置文件</span></div><div class="line">        update_conf(proxies)</div><div class="line">        <span class="comment"># 3. 重新加载配置文件</span></div><div class="line">        os.system(<span class="string">'squid -k reconfigure'</span>)</div><div class="line">        <span class="keyword">print</span> <span class="string">'done'</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></div><div class="line">    start = time.time()</div><div class="line">    <span class="keyword">while</span> <span class="keyword">True</span>:</div><div class="line">        <span class="comment"># 每60秒获取一批新IP</span></div><div class="line">        <span class="keyword">if</span> time.time() - start &gt;= <span class="number">60</span>:</div><div class="line">            get_proxy()</div><div class="line">        time.sleep(<span class="number">5</span>)</div><div class="line">        start = time.time()</div><div class="line"></div><div class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</div><div class="line">    main()</div></pre></td></tr></table></figure>
+<h3 id="使用方法"><a href="#使用方法" class="headerlink" title="使用方法"></a>使用方法</h3><ol>
+<li>按<a href="/2017/02/28/squid-proxy/" title="Squid 搭建正向代理服务器">Squid 搭建正向代理服务器</a>、<a href="/2017/03/01/squid-anony-proxy/" title="Squid 配置高匿代理">Squid 配置高匿代理</a>介绍的方法搭建运行Squid高匿服务器</li>
+<li>备份原始配置文件<code>cp /etc/squid/squid.conf /etc/squid/squid.conf.original</code>，以供软件使用</li>
+<li>在squid服务器上运行<code>python zdy.py</code></li>
+</ol>
+<h3 id="实例"><a href="#实例" class="headerlink" title="实例"></a>实例</h3><p>如果按照上述方法搭建好代理IP池，只需要在爬虫代码中设置设置squid代理服务器地址和端口（比如139.xxx.xxx.66:3188)。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="comment">#!/usr/bin/env python</span></div><div class="line"><span class="comment"># coding: utf-8</span></div><div class="line"><span class="string">'''</span></div><div class="line">代理IP池实例演示</div><div class="line">'''</div><div class="line"><span class="keyword">import</span> requests</div><div class="line"></div><div class="line">s = requests.Session()</div><div class="line">s.proxies.update(</div><div class="line">    &#123;<span class="string">'http'</span>: <span class="string">'139.xxx.xxx.66:3188'</span>&#125;</div><div class="line">)</div><div class="line"><span class="keyword">print</span> s.get(<span class="string">'http://httpbin.org/ip'</span>)</div></pre></td></tr></table></figure>
+<p>每次运行这个程序时，返回的IP都不一样，而且仅有一个，说明IP代理池已经搭建成功，可以应用在网络爬虫项目中。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>这套解决方案结合了网络上的大量优质代理资源以及Squid服务器提供的特性，基本解决了网站对于爬虫IP的封锁。</p>
+<p>成本比较低，而且有比较高的易用性，很方便地能结合到各种爬虫应用中，只需要增加一个代理地址即可，而由Squid统一管理父代理，不需要在爬虫程序中进行代理的获取验证等等操作，便于维护。</p>
+<p>实际使用中还没有发现什么特别重大的问题，更多扩展性还有待后续继续研究。</p>
+<p>项目地址： <a href="https://github.com/xNathan/squid_proxy_pool" target="_blank" rel="external">https://github.com/xNathan/squid_proxy_pool</a></p>
+]]></content>
+      
+        <categories>
+            
+            <category> python </category>
+            
+        </categories>
+        
+        
+        <tags>
+            
+            <tag> python </tag>
+            
+            <tag> squid </tag>
+            
+            <tag> proxy </tag>
+            
+        </tags>
+        
+    </entry>
+    
+    <entry>
+      <title><![CDATA[Squid 配置高匿代理]]></title>
+      <url>http://www.xnathan.com/2017/03/01/squid-anony-proxy/</url>
+      <content type="html"><![CDATA[<p>之前简单介绍过 <a href="/2017/02/28/squid-proxy/" title="Squid 搭建正向代理服务器">Squid 搭建正向代理服务器</a>，但是这种方式搭建的代理服务器仅为普通代理，目标网站依然能检测到我们的真实ip，实际的爬虫业务中我们需要的是高匿代理，隐藏爬虫的真实ip。</p>
+<ol>
+<li>实现方法比较简单，只需要将如下配置加入到配置文件<code>/etc/squid/squid.conf</code>末尾即可。</li>
+</ol>
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">request_header_access Via deny all</div><div class="line">request_header_access X-Forwarded-For deny all</div><div class="line">request_header_access From deny all</div></pre></td></tr></table></figure>
+<ol>
+<li>重新加载配置文件： <code>squid -k reconfigure</code></li>
+<li>配置浏览器http代理，在此不再详述。</li>
+<li>检测代理</li>
+</ol>
+<p>可以访问<a href="http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。" target="_blank" rel="external">http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。</a></p>
+<p>或者访问<a href="http://www.iprivacytools.com/proxy-checker-anonymity-test/" target="_blank" rel="external">Proxy Checker</a>，网页显示详细的代理检测信息。</p>
+<p><img src="http://om7slaimx.bkt.clouddn.com/17-3-3/84887346-file_1488503815828_3c4e.png" alt="代理检测"></p>
+<p>如果网页最上方显示<code>NO PROXY DETECTED</code> 则表明高匿代理搭建成功。</p>
+]]></content>
+      
+        <categories>
+            
+            <category> python </category>
+            
+        </categories>
+        
+        
+        <tags>
+            
+            <tag> python </tag>
+            
+            <tag> squid </tag>
+            
+            <tag> proxy </tag>
+            
+        </tags>
+        
+    </entry>
+    
+    <entry>
+      <title><![CDATA[Squid 搭建正向代理服务器]]></title>
+      <url>http://www.xnathan.com/2017/02/28/squid-proxy/</url>
+      <content type="html"><![CDATA[<p>Squid 是一款缓存代理服务器软件，广泛用于网站的负载均衡架构中，常见的缓存服务器还有varnish、ATS等。</p>
+<p>正向代理服务器可满足内网仅有一台服务器可以上网，而要供内网所有机器上网的需求，也可以用于爬虫的代理访问。在实践中我将Squid作为爬虫代理服务器，实现了多IP切换的功能，将在后续文章中记录实现过程。</p>
+<h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><blockquote>
+<p>系统环境： CentOS 7.0<br>Squid版本：3.5.20</p>
+</blockquote>
+<ol>
+<li>源代码安装</li>
+</ol>
+<p>到官方网站 <a href="http://www.squid-cache.org/Versions/" target="_blank" rel="external">http://www.squid-cache.org/Versions/</a> 查找版本号，找到下载链接，以v3.5.20为例，安装步骤如下：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="built_in">cd</span> /tmp</div><div class="line">wget http://www.squid-cache.org/Versions/v3/3.5/squid-3.5.20.tar.gz</div><div class="line">tar xzf squid-3.5.20.tar.gz</div><div class="line"><span class="built_in">cd</span> squid-3.5.20</div><div class="line">./configure --with-MYOPTION --with-MYOPTION2 etc  <span class="comment"># 具体参数请参考官方文档</span></div><div class="line">make &amp;&amp; make install</div></pre></td></tr></table></figure>
+<p>更多配置详情参考： <a href="http://wiki.squid-cache.org/SquidFaq/CompilingSquid" target="_blank" rel="external">http://wiki.squid-cache.org/SquidFaq/CompilingSquid</a></p>
+<ol>
+<li>包管理安装</li>
+</ol>
+<p>centos 用 <code>sudo yum install squid</code> 即可完成安装。</p>
+<h3 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h3><p>配置文件位置在 <code>/etc/squid/squid.conf</code> ，修改默认配置文件：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div></pre></td><td class="code"><pre><div class="line">#</div><div class="line"># Recommended minimum configuration:</div><div class="line">#</div><div class="line"></div><div class="line"># Example rule allowing access from your local networks.</div><div class="line"># Adapt to list your (internal) IP networks from where browsing</div><div class="line"># should be allowed</div><div class="line"># 内网控制，按需修改</div><div class="line">acl localnet src 10.0.0.0/8	# RFC1918 possible internal network</div><div class="line">acl localnet src 172.16.0.0/12	# RFC1918 possible internal network</div><div class="line">acl localnet src 192.168.0.0/16	# RFC1918 possible internal network</div><div class="line">acl localnet src fc00::/7       # RFC 4193 local private network range</div><div class="line">acl localnet src fe80::/10      # RFC 4291 link-local (directly plugged) machines</div><div class="line"></div><div class="line"># 配置可访问的端口</div><div class="line">acl SSL_ports port 443</div><div class="line">acl Safe_ports port 80		# http</div><div class="line">acl Safe_ports port 21		# ftp</div><div class="line">acl Safe_ports port 443		# https</div><div class="line">acl Safe_ports port 70		# gopher</div><div class="line">acl Safe_ports port 210		# wais</div><div class="line">acl Safe_ports port 1025-65535	# unregistered ports</div><div class="line">acl Safe_ports port 280		# http-mgmt</div><div class="line">acl Safe_ports port 488		# gss-http</div><div class="line">acl Safe_ports port 591		# filemaker</div><div class="line">acl Safe_ports port 777		# multiling http</div><div class="line">acl CONNECT method CONNECT</div><div class="line"></div><div class="line">#</div><div class="line"># Recommended minimum Access Permission configuration:</div><div class="line">#</div><div class="line"># Deny requests to certain unsafe ports</div><div class="line"># 拒绝其他非安全端口的访问</div><div class="line">http_access deny !Safe_ports</div><div class="line"></div><div class="line"># Deny CONNECT to other than secure SSL ports</div><div class="line"># 拒绝443以外的端口访问</div><div class="line">http_access deny CONNECT !SSL_ports</div><div class="line"></div><div class="line"># Only allow cachemgr access from localhost</div><div class="line"># 允许本机访问</div><div class="line">http_access allow localhost manager</div><div class="line">http_access deny manager</div><div class="line"></div><div class="line"># We strongly recommend the following be uncommented to protect innocent</div><div class="line"># web applications running on the proxy server who think the only</div><div class="line"># one who can access services on "localhost" is a local user</div><div class="line">#http_access deny to_localhost</div><div class="line"></div><div class="line">#</div><div class="line"># INSERT YOUR OWN RULE(S) HERE TO ALLOW ACCESS FROM YOUR CLIENTS</div><div class="line">#</div><div class="line"></div><div class="line"># Example rule allowing access from your local networks.</div><div class="line"># Adapt localnet in the ACL section to list your (internal) IP networks</div><div class="line"># from where browsing should be allowed</div><div class="line"># 允许内网</div><div class="line">http_access allow localnet</div><div class="line">http_access allow localhost</div><div class="line"></div><div class="line"># And finally deny all other access to this proxy</div><div class="line"># 拒绝所有</div><div class="line">http_access deny all</div><div class="line"></div><div class="line"># Squid normally listens to port 3128</div><div class="line"># 默认对外端口为3128</div><div class="line">http_port 3128</div><div class="line"></div><div class="line"># Uncomment and adjust the following to add a disk cache directory.</div><div class="line"># 设置缓存文件位置、cache目录容量（单位M）、一级缓存目录数量、二级缓存目录数量</div><div class="line"># 取消注释</div><div class="line">cache_dir ufs /var/spool/squid 100 16 256</div><div class="line"></div><div class="line"># Leave coredumps in the first cache dir</div><div class="line">coredump_dir /var/spool/squid</div><div class="line"></div><div class="line">#</div><div class="line"># Add any of your own refresh_pattern entries above these.</div><div class="line">#</div><div class="line">refresh_pattern ^ftp:		1440	20%	10080</div><div class="line">refresh_pattern ^gopher:	1440	0%	1440</div><div class="line">refresh_pattern -i (/cgi-bin/|\?) 0	0%	0</div><div class="line">refresh_pattern .		0	20%	4320</div></pre></td></tr></table></figure>
+<p>按如上设置即可启动squid，本文不详细阐述具体参数的作用，如有需要可查阅相关文档。</p>
+<p>文档参考资料：</p>
+<ol>
+<li><a href="http://www.squid-cache.org/Doc/" target="_blank" rel="external">http://www.squid-cache.org/Doc/</a></li>
+<li><a href="http://zyan.cc/book/squid/index.html" target="_blank" rel="external">squid中文权威指南</a></li>
+</ol>
+<h3 id="运行"><a href="#运行" class="headerlink" title="运行"></a>运行</h3><p>初次配置好或者修改缓存文件位置参数(cache_dir)之后，需要运行<code>squid -z</code> 初始化缓存目录</p>
+<p>设置开机启动：<code>systemctl enable squid</code></p>
+<p>运行：<code>systemctl start squid</code></p>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>按上述设置仅支持本机或者网段为10.0.0.0/8、172.16.0.0/12、192.168.0.0/16等内网访问，可根据实际情况增加控制参数，或者将文件中<code>http_access deny all</code> 改为 <code>http_access allow all</code>即可支持所有网段访问。</p>
+<p>更改浏览器中代理服务器设置，以火狐浏览器为例，填写相应的squid服务器ip和端口号。</p>
+<p><img src="http://om7slaimx.bkt.clouddn.com/17-3-3/59038813-file_1488503768255_887.png" alt="浏览器代理设置"></p>
+<p>访问<a href="http://httpbin.org/ip检测ip地址" target="_blank" rel="external">http://httpbin.org/ip检测ip地址</a></p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">&#123;</div><div class="line">  <span class="attr">"origin"</span>: <span class="string">"182.xxx.xxx.148, 139.xxx.xxx.66"</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>返回数据中有2个ip，第一个为本机的源ip，第二个为squid代理服务器ip，说明正向代理服务器搭建成功。</p>
+]]></content>
+      
+        <categories>
+            
+            <category> python </category>
+            
+        </categories>
+        
+        
+        <tags>
+            
+            <tag> python </tag>
+            
+            <tag> squid </tag>
+            
+            <tag> proxy </tag>
+            
+        </tags>
+        
+    </entry>
+    
+  
+  
+</search>
