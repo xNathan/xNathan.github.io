@@ -81,7 +81,7 @@
 <li>配置浏览器http代理，在此不再详述。</li>
 <li>检测代理</li>
 </ol>
-<p>可以访问<a href="http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。" target="_blank" rel="external">http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。</a></p>
+<p>可以访问 <a href="http://httpbin.org/ip" target="_blank" rel="external">http://httpbin.org/ip</a> ，如果仅返回squid服务器ip，则表明高匿生效。</p>
 <p>或者访问<a href="http://www.iprivacytools.com/proxy-checker-anonymity-test/" target="_blank" rel="external">Proxy Checker</a>，网页显示详细的代理检测信息。</p>
 <p><img src="http://om7slaimx.bkt.clouddn.com/17-3-3/84887346-file_1488503815828_3c4e.png" alt="代理检测"></p>
 <p>如果网页最上方显示<code>NO PROXY DETECTED</code> 则表明高匿代理搭建成功。</p>

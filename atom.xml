@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>xNathan&#39;s Blog</title>
+  <title>孤鸿的天空</title>
   
   <link href="/atom.xml" rel="self"/>
   
@@ -89,7 +89,7 @@
     <link href="http://www.xnathan.com/2017/03/01/squid-anony-proxy/"/>
     <id>http://www.xnathan.com/2017/03/01/squid-anony-proxy/</id>
     <published>2017-03-01T14:12:00.000Z</published>
-    <updated>2017-03-03T03:06:42.703Z</updated>
+    <updated>2017-03-03T09:33:13.734Z</updated>
     
     <content type="html"><![CDATA[<p>之前简单介绍过 <a href="/2017/02/28/squid-proxy/" title="Squid 搭建正向代理服务器">Squid 搭建正向代理服务器</a>，但是这种方式搭建的代理服务器仅为普通代理，目标网站依然能检测到我们的真实ip，实际的爬虫业务中我们需要的是高匿代理，隐藏爬虫的真实ip。</p>
 <ol>
@@ -101,7 +101,7 @@
 <li>配置浏览器http代理，在此不再详述。</li>
 <li>检测代理</li>
 </ol>
-<p>可以访问<a href="http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。" target="_blank" rel="external">http://httpbin.org/ip，如果仅返回squid服务器ip，则表明高匿生效。</a></p>
+<p>可以访问 <a href="http://httpbin.org/ip" target="_blank" rel="external">http://httpbin.org/ip</a> ，如果仅返回squid服务器ip，则表明高匿生效。</p>
 <p>或者访问<a href="http://www.iprivacytools.com/proxy-checker-anonymity-test/" target="_blank" rel="external">Proxy Checker</a>，网页显示详细的代理检测信息。</p>
 <p><img src="http://om7slaimx.bkt.clouddn.com/17-3-3/84887346-file_1488503815828_3c4e.png" alt="代理检测"></p>
 <p>如果网页最上方显示<code>NO PROXY DETECTED</code> 则表明高匿代理搭建成功。</p>
