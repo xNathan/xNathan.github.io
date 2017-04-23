@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://www.xnathan.com/"/>
-  <updated>2017-03-26T03:25:36.017Z</updated>
+  <updated>2017-04-23T14:42:58.851Z</updated>
   <id>http://www.xnathan.com/</id>
   
   <author>
@@ -14,6 +14,65 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>AES加密原理及Python实例代码</title>
+    <link href="http://www.xnathan.com/2017/04/23/aes-encryption/"/>
+    <id>http://www.xnathan.com/2017/04/23/aes-encryption/</id>
+    <published>2017-04-23T12:26:16.000Z</published>
+    <updated>2017-04-23T14:42:58.851Z</updated>
+    
+    <content type="html"><![CDATA[<p>AES(Advanced Encryption Standard)是一种对称密钥加密算法，即双方使用同一段密码对数据进行加解密操作。<br>AES的分块区组长度必须是128 bit，密钥长度可以是128 bit，192 bit或256 bit，分别称为“AES-128”、“AES-192”、“AES-256”。 加密过程中使用的密钥是由Rijndael密钥生成方案产生。</p>
+<h2 id="加密原理"><a href="#加密原理" class="headerlink" title="加密原理"></a>加密原理</h2><p>AES加密过程是在一个4×4的字节矩阵上运作，这个矩阵又称为“体（state）”，其初值就是一个明文区块（矩阵中一个元素大小就是明文区块中的一个Byte）。加密时，各轮AES加密循环（除最后一轮外）均包含4个步骤：</p>
+<ol>
+<li>MixColumns—为了充分混合矩阵中各个直行的操作。这个步骤使用线性转换来混合每内联的四个字节。</li>
+<li>SubBytes—通过一个非线性的替换函数，用查找表的方式把每个字节替换成对应的字节。</li>
+<li>ShiftRows—将矩阵中的每个横列进行循环式移位。</li>
+<li>AddRoundKey—矩阵中的每一个字节都与该次回合密钥（round key）做XOR运算；每个子密钥由密钥生成方案产生。</li>
+</ol>
+<blockquote>
+<p>参考资料：</p>
+<ol>
+<li><a href="http://blog.csdn.net/lisonglisonglisong/article/details/41909813" target="_blank" rel="external">AES加密算法的C++实现</a></li>
+<li><a href="https://zh.wikipedia.org/wiki/%E9%AB%98%E7%BA%A7%E5%8A%A0%E5%AF%86%E6%A0%87%E5%87%86" target="_blank" rel="external">高级加密标准</a></li>
+</ol>
+</blockquote>
+<h2 id="五种加密模式"><a href="#五种加密模式" class="headerlink" title="五种加密模式"></a>五种加密模式</h2><p>AES是一种基于分组的加密模式，允许使用同一个分组密码密钥对多于一块的数据进行加密，并保证其安全性。分组密码自身<strong>只能加密长度等于密码分组长度的单块数据</strong>，若要加密变长数据，则数据必须先被划分为一些单独的密码块。通常而言，最后一块数据也需要使用合适填充方式将数据扩展到匹配密码块大小的长度。一种工作模式描述了加密每一数据块的过程，并常常使用基于一个通常称为初始化向量的附加输入值以进行随机化，以保证安全。</p>
+<p>初始化向量（IV，Initialization Vector）是许多任务作模式中用于将加密随机化的一个位块，且通常无须保密随加密后的密文一起发出。</p>
+<ol>
+<li><p>ECB（电子密码本）<br>最简单的加密模式，将需要加密数据分成若干块，对每块分别进行加密。</p>
+</li>
+<li><p>CBC（密码块链接）<br>数据分块后，每一块数据与上一块密文异或后再进行加密。</p>
+</li>
+<li><p>CFB（密文反馈）<br>加密模式和CBC类似，但其可以将块密码变为自同步的流密码， 不需要对数据进行填充操作。</p>
+</li>
+<li><p>OFB（输出反馈）<br>算法比较复杂，将块密码变成同步的流密码，它产生密钥流的块，然后将其与平文块进行异或，得到密文。</p>
+</li>
+<li><p>CTR（计数器模式）<br>与OFB相似，CTR将块密码变为流密码。它通过递增一个加密计数器以产生连续的密钥流。</p>
+</li>
+</ol>
+<p>ECB模式下IV为可选参数，CRT不使用IV而使用counter；ECB、CBC、OFB填充为密钥长度的整数倍，CFB填充为分块大小除以8的整数倍，CTR不需要进行数据填充。</p>
+<h2 id="实例代码"><a href="#实例代码" class="headerlink" title="实例代码"></a>实例代码</h2><p>以CBC模式为例，以下是Python中的AES的加密代码，先要安装<code>pycrypto‎</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div></pre></td><td class="code"><pre><div class="line"><span class="comment"># coding: utf-8</span></div><div class="line"><span class="keyword">from</span> Crypto.Cipher <span class="keyword">import</span> AES</div><div class="line"><span class="keyword">from</span> Crypto <span class="keyword">import</span> Random</div><div class="line"><span class="keyword">import</span> base64</div><div class="line"></div><div class="line">key = Random.new().read(AES.block_size)  <span class="comment"># 随机生成密钥</span></div><div class="line">iv = Random.new().read(AES.block_size)   <span class="comment"># 随机生成IV</span></div><div class="line"></div><div class="line">BS = <span class="number">16</span>  <span class="comment"># 分组数据长度</span></div><div class="line"><span class="comment"># 填充补齐最后一块数据</span></div><div class="line"><span class="comment"># 例如需要补5个字节，在后面填充5个\x05</span></div><div class="line"><span class="comment"># 补12个字节则填充12个\x0c</span></div><div class="line">pad = <span class="keyword">lambda</span> s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS) </div><div class="line"></div><div class="line"><span class="comment"># 删除补充的数据</span></div><div class="line"><span class="comment"># 最后一位是\x06则删除末尾6个字节</span></div><div class="line">unpad = <span class="keyword">lambda</span> s : s[<span class="number">0</span>:-ord(s[<span class="number">-1</span>])]</div><div class="line"></div><div class="line">msg = <span class="string">"Hello AES Encryption"</span></div><div class="line"></div><div class="line"><span class="comment"># Encryption</span></div><div class="line">cbc_cipher = AES.new(key, AES.MODE_CBC, IV=iv)</div><div class="line">cipher_text = iv + cbc_cipher.encrypt(pad(msg))  <span class="comment"># 将IV和密文一起传送</span></div><div class="line"><span class="comment"># Decryption</span></div><div class="line">cbc_decipher = AES.new(key, AES.MODE_CBC, IV=cipher_text[:<span class="number">16</span>])  <span class="comment">#  密文前16位为IV</span></div><div class="line"><span class="comment"># 前16位为IV，不需要解密</span></div><div class="line">decrypted_text = cbc_decipher.decrypt(cipher_text[<span class="number">16</span>:])</div><div class="line"><span class="keyword">print</span> <span class="string">'CBC Mode Encrypted text: '</span>, base64.urlsafe_b64encode(cipher_text)  <span class="comment"># 对字节数据进行base64编码</span></div><div class="line"><span class="keyword">print</span> <span class="string">'CBC Mode Decrypted text: '</span>, unpad(decrypted_text)  <span class="comment"># 去除末尾的填充字符</span></div></pre></td></tr></table></figure>
+<p>输出结果：</p>
+<figure class="highlight applescript"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">CBC Mode Encrypted <span class="built_in">text</span>:  lm4YYUlm3SWSDN3IU1UyFlCOETDvL49RWM_7xl95aUwl8JCdEiF4V3SEyqvniIzD</div><div class="line">CBC Mode Decrypted <span class="built_in">text</span>:  Hello AES Encryption</div></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>AES是广泛使用的一种加密方式，而pycrypto模块提供了比较方便的加密支持，不同加密模式的参数略有不同，在实际项目中应视需求，参考官方文档。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;AES(Advanced Encryption Standard)是一种对称密钥加密算法，即双方使用同一段密码对数据进行加解密操作。&lt;br&gt;AES的分块区组长度必须是128 bit，密钥长度可以是128 bit，192 bit或256 bit，分别称为“AES-128”、“
+    
+    </summary>
+    
+      <category term="python" scheme="http://www.xnathan.com/categories/python/"/>
+    
+    
+      <category term="aes" scheme="http://www.xnathan.com/tags/aes/"/>
+    
+      <category term="加密" scheme="http://www.xnathan.com/tags/%E5%8A%A0%E5%AF%86/"/>
+    
+  </entry>
   
   <entry>
     <title>Python logging同时输出到屏幕和文件</title>
