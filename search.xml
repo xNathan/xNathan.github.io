@@ -4,6 +4,69 @@
   
     
     <entry>
+      <title><![CDATA[CentOS无桌面环境部署Selenium+Firefox]]></title>
+      <url>http://www.xnathan.com/2017/12/04/headless-selenium-on-centos/</url>
+      <content type="html"><![CDATA[<p>桌面环境使用Selenium默认会打开浏览器界面，但是如果要部署在无桌面环境的服务器环境，使用普通方法没法运行Selenium。</p>
+<p>在服务器环境安装Gnome或者其他桌面环境，比较占用资源。</p>
+<p>可以通过安装虚拟桌面环境解决这个问题。</p>
+<p>Xvfb（X virtual framebuffer）是一个虚拟显示服务器，不需要显示设备也能模拟运行图形界面。</p>
+<blockquote>
+<p>系统要求：</p>
+<ul>
+<li>CentOS 7</li>
+<li>Firefox 56.0+</li>
+<li>Selenium 3.5+</li>
+<li>geckodriver 0.19+</li>
+</ul>
+</blockquote>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><ol>
+<li><p>安装Xvfb及其他依赖<br><code>yum install xorg-x11-server-Xvfb bzip gtk3</code></p>
+</li>
+<li><p>安装火狐</p>
+<p>CentOS源里的火狐版本为52.3.0 ESR延长支持版，版本较老，和最新的Selenium版本不兼容，可能会启动不了。从官方下载56.0以上的版本。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="built_in">cd</span> /usr/<span class="built_in">local</span></div><div class="line">wget https://ftp.mozilla.org/pub/firefox/releases/56.0.2/linux-x86_64/en-US/firefox-56.0.2.tar.bz2</div><div class="line">tar xjvf firefox-56.0.2.tar.bz2</div><div class="line">ln <span class="_">-s</span> /usr/<span class="built_in">local</span>/firefox/firefox /usr/bin/firefox</div></pre></td></tr></table></figure>
+</li>
+<li><p>安装Selenium<br><code>pip install selenium</code></p>
+</li>
+<li><p>安装火狐驱动<br>最新版本下载地址：<a href="https://github.com/mozilla/geckodriver/releases" target="_blank" rel="external">https://github.com/mozilla/geckodriver/releases</a></p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">cd <span class="regexp">/usr/</span>local/bin</div><div class="line">wget <span class="string">https:</span><span class="comment">//github.com/mozilla/geckodriver/releases/download/v0.19.1/geckodriver-v0.19.1-linux64.tar.gz</span></div><div class="line">tar xvzf geckodriver-*.tar.gz</div><div class="line">ln -s <span class="regexp">/usr/</span>local<span class="regexp">/geckodriver /</span>usr<span class="regexp">/bin/</span>geckodriver</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="运行"><a href="#运行" class="headerlink" title="运行"></a>运行</h2><ol>
+<li><p>启动虚拟桌面环境，保持后台运行<br><code>Xvfb :1 -screen 0 1024x768x24 &amp;</code><br><code>:1</code>是服务启动的端口号，可以任意设置，与下一步保持一致就行</p>
+</li>
+<li><p>配置环境变量<br><code>export DISPLAY=:1</code><br>端口号和上面一致，冒号不能漏</p>
+</li>
+<li><p>启动程序测试</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">from</span> selenium <span class="keyword">import</span> webdriver</div><div class="line"></div><div class="line">b = webdriver.Firefox()</div><div class="line">b.get(<span class="string">'http://www.baidu.com'</span>)</div><div class="line"><span class="keyword">print</span> b.page_source</div><div class="line">b.quit()</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="其他问题"><a href="#其他问题" class="headerlink" title="其他问题"></a>其他问题</h2><ol>
+<li><p>运行webdriver.Firefox()后等待很久报错并退出，显示<code>selenium.common.exceptions.WebDriverException: Message: other os error</code>：可能是版本不兼容，可以把firefox，geckodriver以及selenium全部升级到新版本</p>
+</li>
+<li><p>启动不了火狐，显示<code>Error: GDK_BACKEND does not match available displays</code>错误：检查是否运行Xvfb，是否配置环境变量，端口号是否一致</p>
+<figure class="highlight vim"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">ps</span> -aux | <span class="keyword">grep</span> Xvfb</div><div class="line"><span class="keyword">echo</span> $DISPLAY</div></pre></td></tr></table></figure></li>
+</ol>
+]]></content>
+      
+        <categories>
+            
+            <category> python </category>
+            
+        </categories>
+        
+        
+        <tags>
+            
+            <tag> selenium </tag>
+            
+            <tag> python </tag>
+            
+        </tags>
+        
+    </entry>
+    
+    <entry>
       <title><![CDATA[AES加密原理及Python实例代码]]></title>
       <url>http://www.xnathan.com/2017/04/23/aes-encryption/</url>
       <content type="html"><![CDATA[<p>AES(Advanced Encryption Standard)是一种对称密钥加密算法，即双方使用同一段密码对数据进行加解密操作。<br>AES的分块区组长度必须是128 bit，密钥长度可以是128 bit，192 bit或256 bit，分别称为“AES-128”、“AES-192”、“AES-256”。 加密过程中使用的密钥是由Rijndael密钥生成方案产生。</p>

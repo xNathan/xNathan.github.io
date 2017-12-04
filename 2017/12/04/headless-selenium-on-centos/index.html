@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description"><title>CentOS无桌面环境部署Selenium+Firefox | 孤鸿的天空</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/7.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><link rel="alternate" type="application/atom+xml" href="/atom.xml"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">CentOS无桌面环境部署Selenium+Firefox</h1><a id="logo" href="/.">孤鸿的天空</a><p class="description"></p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a><a href="/atom.xml"><i class="fa fa-rss"> 订阅</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">CentOS无桌面环境部署Selenium+Firefox</h1><div class="post-meta">Dec 4, 2017<span> | </span><span class="category"><a href="/categories/python/">python</a></span></div><a data-disqus-identifier="2017/12/04/headless-selenium-on-centos/" href="/2017/12/04/headless-selenium-on-centos/#disqus_thread" class="disqus-comment-count"></a><div class="post-content"><p>桌面环境使用Selenium默认会打开浏览器界面，但是如果要部署在无桌面环境的服务器环境，使用普通方法没法运行Selenium。</p>
+<p>在服务器环境安装Gnome或者其他桌面环境，比较占用资源。</p>
+<p>可以通过安装虚拟桌面环境解决这个问题。</p>
+<p>Xvfb（X virtual framebuffer）是一个虚拟显示服务器，不需要显示设备也能模拟运行图形界面。</p>
+<blockquote>
+<p>系统要求：</p>
+<ul>
+<li>CentOS 7</li>
+<li>Firefox 56.0+</li>
+<li>Selenium 3.5+</li>
+<li>geckodriver 0.19+</li>
+</ul>
+</blockquote>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><ol>
+<li><p>安装Xvfb及其他依赖<br><code>yum install xorg-x11-server-Xvfb bzip gtk3</code></p>
+</li>
+<li><p>安装火狐</p>
+<p>CentOS源里的火狐版本为52.3.0 ESR延长支持版，版本较老，和最新的Selenium版本不兼容，可能会启动不了。从官方下载56.0以上的版本。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="built_in">cd</span> /usr/<span class="built_in">local</span></div><div class="line">wget https://ftp.mozilla.org/pub/firefox/releases/56.0.2/linux-x86_64/en-US/firefox-56.0.2.tar.bz2</div><div class="line">tar xjvf firefox-56.0.2.tar.bz2</div><div class="line">ln <span class="_">-s</span> /usr/<span class="built_in">local</span>/firefox/firefox /usr/bin/firefox</div></pre></td></tr></table></figure>
+</li>
+<li><p>安装Selenium<br><code>pip install selenium</code></p>
+</li>
+<li><p>安装火狐驱动<br>最新版本下载地址：<a href="https://github.com/mozilla/geckodriver/releases" target="_blank" rel="external">https://github.com/mozilla/geckodriver/releases</a></p>
+<figure class="highlight groovy"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">cd <span class="regexp">/usr/</span>local/bin</div><div class="line">wget <span class="string">https:</span><span class="comment">//github.com/mozilla/geckodriver/releases/download/v0.19.1/geckodriver-v0.19.1-linux64.tar.gz</span></div><div class="line">tar xvzf geckodriver-*.tar.gz</div><div class="line">ln -s <span class="regexp">/usr/</span>local<span class="regexp">/geckodriver /</span>usr<span class="regexp">/bin/</span>geckodriver</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="运行"><a href="#运行" class="headerlink" title="运行"></a>运行</h2><ol>
+<li><p>启动虚拟桌面环境，保持后台运行<br><code>Xvfb :1 -screen 0 1024x768x24 &amp;</code><br><code>:1</code>是服务启动的端口号，可以任意设置，与下一步保持一致就行</p>
+</li>
+<li><p>配置环境变量<br><code>export DISPLAY=:1</code><br>端口号和上面一致，冒号不能漏</p>
+</li>
+<li><p>启动程序测试</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">from</span> selenium <span class="keyword">import</span> webdriver</div><div class="line"></div><div class="line">b = webdriver.Firefox()</div><div class="line">b.get(<span class="string">'http://www.baidu.com'</span>)</div><div class="line"><span class="keyword">print</span> b.page_source</div><div class="line">b.quit()</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="其他问题"><a href="#其他问题" class="headerlink" title="其他问题"></a>其他问题</h2><ol>
+<li><p>运行webdriver.Firefox()后等待很久报错并退出，显示<code>selenium.common.exceptions.WebDriverException: Message: other os error</code>：可能是版本不兼容，可以把firefox，geckodriver以及selenium全部升级到新版本</p>
+</li>
+<li><p>启动不了火狐，显示<code>Error: GDK_BACKEND does not match available displays</code>错误：检查是否运行Xvfb，是否配置环境变量，端口号是否一致</p>
+<figure class="highlight vim"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">ps</span> -aux | <span class="keyword">grep</span> Xvfb</div><div class="line"><span class="keyword">echo</span> $DISPLAY</div></pre></td></tr></table></figure></li>
+</ol>
+</div><div class="tags"><a href="/tags/selenium/">selenium</a><a href="/tags/python/">python</a></div><div class="post-nav"><a href="/2017/04/23/aes-encryption/" class="next">AES加密原理及Python实例代码</a></div><div id="disqus_thread"><div class="btn_click_load"><button class="disqus_click_btn">阅读评论 「请确保 disqus.com 可以正常加载」</button></div><script>var disqus_shortname = 'xnathan';
+var disqus_identifier = '2017/12/04/headless-selenium-on-centos/';
+var disqus_title = 'CentOS无桌面环境部署Selenium+Firefox';
+var disqus_url = 'http://www.xnathan.com/2017/12/04/headless-selenium-on-centos/';
+$('.btn_click_load').click(function() {
+  (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+  })();
+  $('.btn_click_load').css('display','none');
+});
+$.ajax({
+  url: 'https://disqus.com/next/config.json',
+  timeout: 3000,
+  type: 'GET',
+  success: (function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    $('.btn_click_load').css('display','none');
+  })(),
+  error: function() {
+    $('.btn_click_load').css('display','block');
+  }
+});</script><script id="dsq-count-scr" src="//xnathan.disqus.com/count.js" async></script></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/python/">python</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/aes/" style="font-size: 15px;">aes</a> <a href="/tags/加密/" style="font-size: 15px;">加密</a> <a href="/tags/selenium/" style="font-size: 15px;">selenium</a> <a href="/tags/python/" style="font-size: 15px;">python</a> <a href="/tags/squid/" style="font-size: 15px;">squid</a> <a href="/tags/proxy/" style="font-size: 15px;">proxy</a> <a href="/tags/flask/" style="font-size: 15px;">flask</a> <a href="/tags/logging/" style="font-size: 15px;">logging</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2017/12/04/headless-selenium-on-centos/">CentOS无桌面环境部署Selenium+Firefox</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/04/23/aes-encryption/">AES加密原理及Python实例代码</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/03/09/logging-output-to-screen-and-file/">Python logging同时输出到屏幕和文件</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/03/02/squid-proxy-pool/">自己搭建亿级爬虫IP代理池</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/03/01/squid-anony-proxy/">Squid 配置高匿代理</a></li><li class="post-list-item"><a class="post-list-link" href="/2017/02/28/squid-proxy/">Squid 搭建正向代理服务器</a></li><li class="post-list-item"><a class="post-list-link" href="/2016/05/04/flask-project-structure-example/">Flask 项目结构实例</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-comment-o"> 最近评论</i></div><script type="text/javascript" src="//xnathan.disqus.com/recent_comments_widget.js?num_items=5&amp;hide_avatars=1&amp;avatar_size=32&amp;excerpt_length=20&amp;hide_mods=1"></script></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2017 <a href="/." rel="nofollow">孤鸿的天空.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.css"><script type="text/javascript" src="/js/search.js?v=0.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+   search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?d1b7255da6fc063891c2ef6f76cd0b22";
+  var s = document.getElementsByTagName("script")[0];
+  s.parentNode.insertBefore(hm, s);
+  })();
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
